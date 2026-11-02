@@ -1,0 +1,40 @@
+name: Warm SGU page cache
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC = 2am Grenada/US Eastern (1am in winter). GitHub may start it a few minutes late.
+  workflow_dispatch:       # "Run workflow" button for manual runs
+    inputs:
+      limit:
+        description: "Only warm the first N pages (0 = all)"
+        default: "0"
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Warm cache and email report
+        env:
+          CONCURRENCY: "4"
+          MAX_RUNTIME_MIN: "300"
+          VARIANTS: "desktop,mobile,tablet"
+          LIMIT: ${{ github.event.inputs.limit || '0' }}
+          WARM_HEADER: ${{ secrets.WARM_HEADER }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: python3 warm.py
+
+      - name: Save report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cache-report-${{ github.run_id }}
+          path: report/
+          retention-days: 30
